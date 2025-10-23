@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.4/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --border-color: #30363d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --profit: #00d26a;
+            --loss: #f85149;
+            --accent: #238636;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 2.5em;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--profit);
+        }
+
+        .status-dot.offline {
+            background-color: var(--loss);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--bg-primary);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        .profit-positive { color: var(--profit); }
+        .profit-negative { color: var(--loss); }
+
+        .position {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+            gap: 12px;
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+        }
+
+        .position:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .position-header {
+            font-weight: 600;
+            background: var(--bg-primary);
+            border-radius: 6px;
+            font-size: 0.9em;
+            color: var(--text-secondary);
+        }
+
+        .signal {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .signal-long {
+            border-left: 4px solid var(--profit);
+            background: rgba(0, 210, 106, 0.05);
+        }
+
+        .signal-short {
+            border-left: 4px solid var(--loss);
+            background: rgba(248, 81, 73, 0.05);
+        }
+
+        .chart-container {
+            height: 400px;
+            position: relative;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: var(--accent);
+            color: white;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger { background: var(--loss); }
+        .btn-warning { background: #d29922; }
+        .btn-secondary { background: var(--text-secondary); }
+
+        select, input {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+
+        .tradingview-widget-container {
+            height: 500px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        @media (max-width: 1200px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .position {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>🤖 Trading Bot Dashboard</h1>
+            <div class="status-indicator">
+                <div class="status-dot" id="status-dot"></div>
+                <span id="status-text">Подключение...</span>
+            </div>
+        </div>
+
+        <!-- Статистика -->
+        <div class="stats-grid" id="stats-grid">
+            <!-- Статистика будет загружена через JavaScript -->
+        </div>
+
+        <div class="controls">
+            <button class="btn" onclick="scanMarket()">
+                <span>🔍</span> Сканировать рынок
+            </button>
+            <button class="btn" onclick="generateReport()">
+                <span>📊</span> Создать отчет
+            </button>
+            <button class="btn-warning" onclick="enableSignals()">
+                <span>✅</span> Включить сигналы
+            </button>
+            <button class="btn-danger" onclick="disableSignals()">
+                <span>❌</span> Выключить сигналы
+            </button>
+        </div>
+
+        <div class="grid">
+            <!-- Левая колонка -->
+            <div>
+                <!-- Портфель -->
+                <div class="card">
+                    <div class="card-header">
+                        <span>💰 Портфель</span>
+                        <small id="last-update"></small>
+                    </div>
+                    <div id="portfolio-summary">
+                        <div class="stat-card">
+                            <div class="stat-label">Открытых позиций</div>
+                            <div class="stat-value" id="positions-count">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Общий PnL</div>
+                            <div class="stat-value" id="total-pnl">0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Открытые позиции -->
+                <div class="card">
+                    <div class="card-header">📈 Открытые позиции</div>
+                    <div id="positions-list">
+                        <div class="position position-header">
+                            <div>Символ</div>
+                            <div>Направление</div>
+                            <div>Количество</div>
+                            <div>Цена входа</div>
+                            <div>Текущая цена</div>
+                            <div>PnL</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Последние сигналы -->
+                <div class="card">
+                    <div class="card-header">🚨 Последние сигналы</div>
+                    <div id="signals-list"></div>
+                </div>
+            </div>
+
+            <!-- Правая колонка -->
+            <div>
+                <!-- График -->
+                <div class="card">
+                    <div class="card-header">
+                        📊 График
+                        <div>
+                            <select id="symbol-select" onchange="updateChart()">
+                                <option value="BTCUSDT">BTCUSDT</option>
+                                <option value="ETHUSDT">ETHUSDT</option>
+                                <option value="SOLUSDT">SOLUSDT</option>
+                                <option value="XRPUSDT">XRPUSDT</option>
+                            </select>
+                            <select id="interval-select" onchange="updateChart()">
+                                <option value="5m">5m</option>
+                                <option value="15m">15m</option>
+                                <option value="1h">1h</option>
+                                <option value="4h">4h</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="price-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- TradingView виджет -->
+                <div class="card">
+                    <div class="card-header">📈 TradingView</div>
+                    <div class="tradingview-widget-container">
+                        <div id="tradingview-widget"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let priceChart = null;
+        let ws = null;
+        let lastUpdate = new Date();
+
+        // Инициализация WebSocket
+        function initWebSocket() {
+            ws = new WebSocket(`ws://${window.location.host}/ws`);
+
+            ws.onopen = function() {
+                document.getElementById('status-dot').classList.remove('offline');
+                document.getElementById('status-text').textContent = 'Подключено';
+            };
+
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                if (data.type === 'portfolio_update') {
+                    updatePortfolio(data.data);
+                    lastUpdate = new Date();
+                    document.getElementById('last-update').textContent =
+                        `Обновлено: ${lastUpdate.toLocaleTimeString()}`;
+                }
+            };
+
+            ws.onclose = function() {
+                document.getElementById('status-dot').classList.add('offline');
+                document.getElementById('status-text').textContent = 'Переподключение...';
+                setTimeout(initWebSocket, 5000);
+            };
+
+            ws.onerror = function() {
+                document.getElementById('status-dot').classList.add('offline');
+                document.getElementById('status-text').textContent = 'Ошибка подключения';
+            };
+        }
+
+        // Загрузка статистики
+        async function loadStats() {
+            try {
+                const response = await fetch('/stats');
+                const stats = await response.json();
+
+                const statsGrid = document.getElementById('stats-grid');
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-label">Всего сделок</div>
+                        <div class="stat-value">${stats.total_trades}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Прибыльные сделки</div>
+                        <div class="stat-value">${stats.winning_trades}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Win Rate</div>
+                        <div class="stat-value ${stats.win_rate >= 50 ? 'profit-positive' : 'profit-negative'}">
+                            ${stats.win_rate.toFixed(1)}%
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Общий PnL</div>
+                        <div class="stat-value ${stats.total_pnl >= 0 ? 'profit-positive' : 'profit-negative'}">
+                            ${stats.total_pnl.toFixed(2)}
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Обновление портфеля
+        function updatePortfolio(portfolio) {
+            document.getElementById('positions-count').textContent = portfolio.total_positions;
+            document.getElementById('total-pnl').textContent = portfolio.total_pnl.toFixed(2);
+
+            const positionsList = document.getElementById('positions-list');
+            positionsList.innerHTML = `
+                <div class="position position-header">
+                    <div>Символ</div>
+                    <div>Направление</div>
+                    <div>Количество</div>
+                    <div>Цена входа</div>
+                    <div>Текущая цена</div>
+                    <div>PnL</div>
+                </div>
+            `;
+
+            portfolio.positions.forEach(pos => {
+                const pnlClass = pos.pnl >= 0 ? 'profit-positive' : 'profit-negative';
+                const sideEmoji = pos.side === 'BUY' ? '📈' : '📉';
+                const positionDiv = document.createElement('div');
+                positionDiv.className = 'position';
+                positionDiv.innerHTML = `
+                    <div><strong>${pos.symbol}</strong></div>
+                    <div>${sideEmoji} ${pos.side}</div>
+                    <div>${pos.qty.toFixed(4)}</div>
+                    <div>${pos.entry_price.toFixed(4)}</div>
+                    <div>${pos.current_price.toFixed(4)}</div>
+                    <div class="${pnlClass}"><strong>${pos.pnl.toFixed(2)}</strong></div>
+                `;
+                positionsList.appendChild(positionDiv);
+            });
+        }
+
+        // Загрузка графика
+        async function updateChart() {
+            const symbol = document.getElementById('symbol-select').value;
+            const interval = document.getElementById('interval-select').value;
+
+            try {
+                const response = await fetch(`/chart/${symbol}?interval=${interval}&limit=100`);
+                const chartData = await response.json();
+
+                const ctx = document.getElementById('price-chart').getContext('2d');
+
+                if (priceChart) {
+                    priceChart.destroy();
+                }
+
+                priceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: `${symbol} Price`,
+                            data: chartData.map(d => ({
+                                x: new Date(d.time).getTime(),
+                                y: d.close
+                            })),
+                            borderColor: '#00d26a',
+                            backgroundColor: 'rgba(0, 210, 106, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'minute'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                }
+                            },
+                            y: {
+                                position: 'right',
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#c9d1d9'
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading chart:', error);
+            }
+        }
+
+        // Загрузка сигналов
+        async function loadSignals() {
+            try {
+                const response = await fetch('/signals?limit=10');
+                const signals = await response.json();
+
+                const signalsList = document.getElementById('signals-list');
+                signalsList.innerHTML = '';
+
+                signals.forEach(signal => {
+                    const signalDiv = document.createElement('div');
+                    signalDiv.className = `signal ${signal.side.toLowerCase() === 'long' ? 'signal-long' : 'signal-short'}`;
+                    const sideEmoji = signal.side === 'LONG' ? '🟢' : '🔴';
+                    signalDiv.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <strong>${sideEmoji} ${signal.symbol}</strong> - ${signal.side}
+                                <br><small>Цена: ${signal.entry.toFixed(4)} | Стоп: ${signal.stop.toFixed(4)}</small>
+                            </div>
+                            <small>${new Date(signal.ts).toLocaleString()}</small>
+                        </div>
+                    `;
+                    signalsList.appendChild(signalDiv);
+                });
+            } catch (error) {
+                console.error('Error loading signals:', error);
+            }
+        }
+
+        // Управление ботом
+        async function scanMarket() {
+            try {
+                await fetch('/api/scan', { method: 'POST' });
+                alert('✅ Сканирование рынка запущено');
+            } catch (error) {
+                alert('❌ Ошибка при запуске сканирования');
+            }
+        }
+
+        async function generateReport() {
+            try {
+                await fetch('/api/report', { method: 'POST' });
+                alert('📊 Отчет создается...');
+            } catch (error) {
+                alert('❌ Ошибка при создании отчета');
+            }
+        }
+
+        async function enableSignals() {
+            try {
+                await fetch('/api/signals/enable', { method: 'POST' });
+                alert('✅ Автоматические сигналы включены');
+            } catch (error) {
+                alert('❌ Ошибка при включении сигналов');
+            }
+        }
+
+        async function disableSignals() {
+            try {
+                await fetch('/api/signals/disable', { method: 'POST' });
+                alert('❌ Автоматические сигналы выключены');
+            } catch (error) {
+                alert('❌ Ошибка при выключении сигналов');
+            }
+        }
+
+        // Инициализация TradingView виджета
+        function initTradingView() {
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+            script.async = true;
+            script.innerHTML = JSON.stringify({
+                "autosize": true,
+                "symbol": "BINANCE:BTCUSDT",
+                "interval": "15",
+                "timezone": "Europe/Moscow",
+                "theme": "dark",
+                "style": "1",
+                "locale": "ru",
+                "enable_publishing": false,
+                "allow_symbol_change": true,
+                "container_id": "tradingview-widget",
+                "studies": [
+                    "RSI@tv-basicstudies",
+                    "MACD@tv-basicstudies"
+                ]
+            });
+            document.getElementById('tradingview-widget').appendChild(script);
+        }
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            initWebSocket();
+            updateChart();
+            loadSignals();
+            loadStats();
+            initTradingView();
+
+            // Загружаем начальные данные
+            fetch('/portfolio').then(r => r.json()).then(updatePortfolio);
+
+            // Автообновление каждые 30 секунд
+            setInterval(loadStats, 30000);
+            setInterval(loadSignals, 30000);
+        });
+    </script>
+</body>
+</html>
