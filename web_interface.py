@@ -12,21 +12,16 @@ import os
 
 logger = logging.getLogger(__name__)
 
-# Создаем FastAPI приложение для веб-интерфейса
 web_app = FastAPI(title="Trading Bot Dashboard")
 
-# Создаем необходимые папки
 os.makedirs("static", exist_ok=True)
 os.makedirs("docs", exist_ok=True)
 
-# Монтируем статические файлы
 web_app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Настраиваем шаблоны
 docs = Jinja2Templates(directory="docs")
 
 
-# WebSocket соединения для реального времени
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
@@ -51,10 +46,7 @@ manager = ConnectionManager()
 
 @web_app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    """Главная панель управления"""
-    print('111111111111111111')
     try:
-        print('22222222222222')
         portfolio = get_portfolio_summary()
         recent_signals = get_signals(limit=10)
 
@@ -64,9 +56,7 @@ async def dashboard(request: Request):
             "recent_signals": recent_signals
         })
     except Exception as e:
-        print('333333333333333333')
         logger.error(f"Dashboard error: {e}")
-        # Возвращаем простую HTML страницу если шаблон не работает
         return HTMLResponse(content=f"""
         <html>
             <head><title>Trading Bot</title></head>
@@ -99,7 +89,6 @@ async def dashboard(request: Request):
 
 @web_app.get("/api/status")
 async def api_status():
-    """API статуса бота"""
     try:
         portfolio = get_portfolio_summary()
         return {

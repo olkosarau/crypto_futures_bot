@@ -19,7 +19,7 @@ from web_interface import web_app, notify_websocket_clients
 
 load_dotenv()
 app = web_app
-web_app_url = "https://localhost:8000"
+web_app_url = "https://olkosarau.github.io/crypto_futures_bot/"
 
 logging.basicConfig(
     level=logging.INFO,
