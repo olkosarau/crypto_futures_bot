@@ -17,13 +17,13 @@ web_app = FastAPI(title="Trading Bot Dashboard")
 
 # Создаем необходимые папки
 os.makedirs("static", exist_ok=True)
-os.makedirs("templates", exist_ok=True)
+os.makedirs("docs", exist_ok=True)
 
 # Монтируем статические файлы
 web_app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Настраиваем шаблоны
-templates = Jinja2Templates(directory="templates")
+docs = Jinja2Templates(directory="docs")
 
 
 # WebSocket соединения для реального времени
@@ -58,7 +58,7 @@ async def dashboard(request: Request):
         portfolio = get_portfolio_summary()
         recent_signals = get_signals(limit=10)
 
-        return templates.TemplateResponse("dashboard.html", {
+        return docs.TemplateResponse("index.html", {
             "request": request,
             "portfolio": portfolio,
             "recent_signals": recent_signals
